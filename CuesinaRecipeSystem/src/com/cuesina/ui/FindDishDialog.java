@@ -3,212 +3,320 @@ package com.cuesina.ui;
 import com.cuesina.models.Ingredient;
 import com.cuesina.models.RecipeMatchResult;
 import com.cuesina.services.RecommendationEngine;
+import com.cuesina.utils.UIColors;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * FindDishDialog - Ingredient-based recipe recommendation
- * Structure from GUI Form, dynamic content in code
+ * FindDishDialog - Beautiful rounded design for finding recipes
  */
 public class FindDishDialog extends JDialog {
-    private final List<IngredientRow> ingredientRows;
-    private final RecommendationEngine recommendationEngine;
-    // Components from GUI Form Designer
-    private JPanel mainPanel;
-    private JPanel headerPanel;
-    private JPanel contentPanel;
-    private JPanel bottomPanel;
-    // Components we build in code
+
     private JPanel ingredientItemsPanel;
     private JPanel recommendationsPanel;
-    private JButton findButton;
+    private List<IngredientRow> ingredientRows;
     private List<RecipeMatchResult> currentRecommendations;
+    private RecommendationEngine recommendationEngine;
+    private MainWindow parentWindow;
 
-    public FindDishDialog(JFrame parent) {
-        super(parent, "Find a Dish", true);
+    public FindDishDialog(MainWindow parent) {
+        super(parent, true);
+        this.parentWindow = parent;
         this.recommendationEngine = RecommendationEngine.getInstance();
         this.ingredientRows = new ArrayList<>();
         this.currentRecommendations = new ArrayList<>();
 
-        setContentPane(mainPanel);
-        setSize(1000, 650);
-        setLocationRelativeTo(parent);
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setUndecorated(true);
+        setBackground(new Color(0, 0, 0, 0));
 
-        buildHeader();
-        buildContent();
-        buildBottomPanel();
+        setSize(1100, 650);
+        setLocationRelativeTo(parent);
+
+        createUI();
 
         // Add first ingredient row
         addIngredientRow();
     }
 
     /**
-     * Build header
+     * Create complete UI
      */
-    private void buildHeader() {
-        JLabel titleLabel = new JLabel("Cuesina", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD | Font.ITALIC, 28));
-        headerPanel.add(titleLabel, BorderLayout.CENTER);
+    private void createUI() {
+        // Layer 1: Orange background
+        JPanel orangeLayer = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(UIColors.ACCENT_ORANGE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
+                g2.dispose();
+            }
+        };
+        orangeLayer.setOpaque(false);
+        orangeLayer.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        JButton closeButton = new JButton("×");
-        closeButton.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        closeButton.setPreferredSize(new Dimension(50, 50));
-        closeButton.setBackground(new Color(255, 100, 100));
+        // Layer 2: White background
+        JPanel whiteLayer = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+                g2.dispose();
+            }
+        };
+        whiteLayer.setOpaque(false);
+        whiteLayer.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        // Content
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        contentPanel.setOpaque(false);
+
+        contentPanel.add(createIngredientsPanel());
+        contentPanel.add(createRecommendationsPanel());
+
+        whiteLayer.add(contentPanel, BorderLayout.CENTER);
+        orangeLayer.add(whiteLayer, BorderLayout.CENTER);
+
+        // Close button
+        JButton closeButton = createCloseButton();
+
+        // Layered pane
+        JLayeredPane layeredPane = new JLayeredPane();
+        layeredPane.setPreferredSize(new Dimension(1100, 650));
+
+        orangeLayer.setBounds(0, 0, 1100, 650);
+        closeButton.setBounds(1020, 20, 60, 60);
+
+        layeredPane.add(orangeLayer, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(closeButton, JLayeredPane.PALETTE_LAYER);
+
+        setContentPane(layeredPane);
+    }
+
+    /**
+     * Create close button
+     */
+    private JButton createCloseButton() {
+        JButton closeButton = new JButton("×") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(UIColors.BUTTON_CLOSE);
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+
+        closeButton.setFont(new Font("Segoe UI", Font.BOLD, 32));
         closeButton.setForeground(Color.WHITE);
-        closeButton.setFocusPainted(false);
+        closeButton.setContentAreaFilled(false);
         closeButton.setBorderPainted(false);
+        closeButton.setFocusPainted(false);
+        closeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         closeButton.addActionListener(e -> dispose());
-        headerPanel.add(closeButton, BorderLayout.EAST);
+
+        return closeButton;
     }
 
     /**
-     * Build content with JSplitPane
-     */
-    private void buildContent() {
-        JPanel ingredientsPanel = createIngredientsPanel();
-        JPanel recommendationsContainerPanel = createRecommendationsPanel();
-
-        JSplitPane splitPane = new JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                ingredientsPanel,
-                recommendationsContainerPanel
-        );
-        splitPane.setDividerLocation(480);
-        splitPane.setDividerSize(10);
-        splitPane.setResizeWeight(0.5);
-        splitPane.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        contentPanel.add(splitPane, BorderLayout.CENTER);
-    }
-
-    /**
-     * Create ingredients input panel (left - green)
+     * Create ingredients panel
      */
     private JPanel createIngredientsPanel() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBackground(new Color(51, 153, 102));
-        panel.setBorder(new LineBorder(Color.WHITE, 3, true));
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(new Color(0xF5DDB3));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                g2.setColor(new Color(180, 60, 60));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 30, 30);
+
+                g2.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
         // Header
-        JPanel topPanel = new JPanel();
-        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
-        topPanel.setOpaque(false);
-
-        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        headerPanel.setOpaque(false);
-
-        JLabel headerLabel = new JLabel("Ingredients");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        headerLabel.setForeground(new Color(80, 80, 80));
-        headerLabel.setBackground(new Color(180, 180, 180));
+        JLabel headerLabel = new JLabel("Ingredients", SwingConstants.CENTER);
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        headerLabel.setForeground(Color.BLACK);
         headerLabel.setOpaque(true);
-        headerLabel.setBorder(new EmptyBorder(5, 20, 5, 20));
-        headerPanel.add(headerLabel);
-        topPanel.add(headerPanel);
+        headerLabel.setBackground(UIColors.ACCENT_ORANGE);
+        headerLabel.setBorder(new EmptyBorder(8, 20, 8, 20));
 
-        // Info label
-        JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        infoPanel.setOpaque(false);
-        JLabel infoLabel = new JLabel("What ingredients do you have?");
-        infoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        infoLabel.setForeground(Color.WHITE);
-        infoPanel.add(infoLabel);
-        topPanel.add(infoPanel);
-
-        panel.add(topPanel, BorderLayout.NORTH);
-
-        // Ingredient list
-        ingredientItemsPanel = new JPanel();
-        ingredientItemsPanel.setLayout(new BoxLayout(ingredientItemsPanel, BoxLayout.Y_AXIS));
-        ingredientItemsPanel.setBackground(new Color(200, 200, 200));
-
-        JScrollPane scrollPane = new JScrollPane(ingredientItemsPanel);
-        scrollPane.setBorder(new EmptyBorder(5, 5, 5, 5));
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        panel.add(scrollPane, BorderLayout.CENTER);
-
-        // Add button
-        JPanel addButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        addButtonPanel.setOpaque(false);
-        addButtonPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        JButton addIngredientButton = new JButton("+");
-        addIngredientButton.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        addIngredientButton.setPreferredSize(new Dimension(60, 60));
-        addIngredientButton.setBackground(new Color(220, 220, 220));
-        addIngredientButton.setFocusPainted(false);
-        addIngredientButton.addActionListener(e -> addIngredientRow());
-
-        addButtonPanel.add(addIngredientButton);
-        panel.add(addButtonPanel, BorderLayout.SOUTH);
-
-        return panel;
-    }
-
-    /**
-     * Create recommendations panel (right - orange)
-     */
-    private JPanel createRecommendationsPanel() {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBackground(new Color(255, 140, 0));
-        panel.setBorder(new LineBorder(Color.WHITE, 3, true));
-
-        // Header
-        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         headerPanel.setOpaque(false);
-
-        JLabel headerLabel = new JLabel("Recommended Dishes");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        headerLabel.setForeground(new Color(80, 80, 80));
-        headerLabel.setBackground(new Color(180, 180, 180));
-        headerLabel.setOpaque(true);
-        headerLabel.setBorder(new EmptyBorder(5, 20, 5, 20));
         headerPanel.add(headerLabel);
 
         panel.add(headerPanel, BorderLayout.NORTH);
 
-        // Recommendations list area
+        // Center: Ingredient rows
+        ingredientItemsPanel = new JPanel();
+        ingredientItemsPanel.setLayout(new BoxLayout(ingredientItemsPanel, BoxLayout.Y_AXIS));
+        ingredientItemsPanel.setOpaque(false);
+
+        JScrollPane scrollPane = new JScrollPane(ingredientItemsPanel);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        // Bottom: + button and Find Dishes button
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.setOpaque(false);
+
+        // + button (right)
+        JButton addButton = createAddButton();
+        JPanel addButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        addButtonPanel.setOpaque(false);
+        addButtonPanel.add(addButton);
+
+        // Find Dishes button (left)
+        JButton findButton = createFindButton();
+        JPanel findButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        findButtonPanel.setOpaque(false);
+        findButtonPanel.add(findButton);
+
+        bottomPanel.add(findButtonPanel, BorderLayout.WEST);
+        bottomPanel.add(addButtonPanel, BorderLayout.EAST);
+
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    /**
+     * Create recommendations panel
+     */
+    private JPanel createRecommendationsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(new Color(0xF5DDB3));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                g2.setColor(new Color(180, 60, 60));
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 30, 30);
+
+                g2.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        // Header
+        JLabel headerLabel = new JLabel("Recommended Dishes", SwingConstants.CENTER);
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        headerLabel.setForeground(Color.BLACK);
+        headerLabel.setOpaque(true);
+        headerLabel.setBackground(UIColors.ACCENT_ORANGE);
+        headerLabel.setBorder(new EmptyBorder(8, 20, 8, 20));
+
+        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        headerPanel.setOpaque(false);
+        headerPanel.add(headerLabel);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        // Recommendations list
         recommendationsPanel = new JPanel();
         recommendationsPanel.setLayout(new BoxLayout(recommendationsPanel, BoxLayout.Y_AXIS));
-        recommendationsPanel.setBackground(new Color(200, 200, 200));
-
-        // Initial message
-        JLabel initialLabel = new JLabel("Click 'Find Dishes' to see recommendations", SwingConstants.CENTER);
-        initialLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-        initialLabel.setForeground(Color.GRAY);
-        initialLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        recommendationsPanel.add(Box.createVerticalGlue());
-        recommendationsPanel.add(initialLabel);
-        recommendationsPanel.add(Box.createVerticalGlue());
+        recommendationsPanel.setOpaque(false);
 
         JScrollPane scrollPane = new JScrollPane(recommendationsPanel);
-        scrollPane.setBorder(new EmptyBorder(5, 10, 10, 10));
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
         panel.add(scrollPane, BorderLayout.CENTER);
 
         return panel;
     }
 
     /**
-     * Build bottom panel
+     * Create green + button
      */
-    private void buildBottomPanel() {
-        findButton = new JButton("Find Dishes");
-        findButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        findButton.setPreferredSize(new Dimension(200, 50));
-        findButton.setBackground(new Color(255, 140, 0));
-        findButton.setForeground(Color.WHITE);
-        findButton.setFocusPainted(false);
-        findButton.setBorderPainted(false);
-        findButton.addActionListener(e -> findRecommendations());
+    private JButton createAddButton() {
+        JButton button = new JButton("+") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(100, 180, 80));
+                g2.fillOval(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
 
-        bottomPanel.add(findButton);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        button.setForeground(Color.WHITE);
+        button.setPreferredSize(new Dimension(60, 60));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.addActionListener(e -> addIngredientRow());
+
+        return button;
+    }
+
+    /**
+     * Create Find Dishes button
+     */
+    private JButton createFindButton() {
+        JButton button = new JButton("Find Dishes") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color btnColor = new Color(100, 180, 80);
+                if (getModel().isPressed()) {
+                    g2.setColor(btnColor.darker());
+                } else if (getModel().isRollover()) {
+                    g2.setColor(btnColor.brighter());
+                } else {
+                    g2.setColor(btnColor);
+                }
+
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+
+        button.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        button.setForeground(Color.WHITE);
+        button.setPreferredSize(new Dimension(160, 50));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.addActionListener(e -> findRecommendations());
+
+        return button;
     }
 
     /**
@@ -218,6 +326,7 @@ public class FindDishDialog extends JDialog {
         IngredientRow row = new IngredientRow();
         ingredientRows.add(row);
         ingredientItemsPanel.add(row.getPanel());
+        ingredientItemsPanel.add(Box.createVerticalStrut(10));
         ingredientItemsPanel.revalidate();
         ingredientItemsPanel.repaint();
     }
@@ -233,7 +342,7 @@ public class FindDishDialog extends JDialog {
     }
 
     /**
-     * Find recommendations based on user's ingredients
+     * Find recommendations
      */
     private void findRecommendations() {
         // Collect user's ingredients
@@ -254,57 +363,29 @@ public class FindDishDialog extends JDialog {
             return;
         }
 
-        // Show loading state
-        findButton.setEnabled(false);
-        findButton.setText("Searching...");
+        // Get recommendations
+        currentRecommendations = recommendationEngine.getRecommendations(userIngredients);
 
-        // Use SwingWorker for background processing (prevents UI freeze)
-        SwingWorker<List<RecipeMatchResult>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected List<RecipeMatchResult> doInBackground() {
-                return recommendationEngine.getRecommendations(userIngredients);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    currentRecommendations = get();
-                    displayRecommendations();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(FindDishDialog.this,
-                            "Error finding recommendations: " + e.getMessage(),
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    findButton.setEnabled(true);
-                    findButton.setText("Find Dishes");
-                }
-            }
-        };
-
-        worker.execute();
+        // Display recommendations
+        displayRecommendations();
     }
 
     /**
-     * Display recommendations in the panel
+     * Display recommendations
      */
     private void displayRecommendations() {
         recommendationsPanel.removeAll();
 
         if (currentRecommendations.isEmpty()) {
             JLabel noResultsLabel = new JLabel("No matching recipes found", SwingConstants.CENTER);
-            noResultsLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+            noResultsLabel.setFont(new Font("Segoe UI", Font.ITALIC, 16));
             noResultsLabel.setForeground(Color.GRAY);
-            noResultsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-            recommendationsPanel.add(Box.createVerticalGlue());
             recommendationsPanel.add(noResultsLabel);
-            recommendationsPanel.add(Box.createVerticalGlue());
         } else {
             for (RecipeMatchResult result : currentRecommendations) {
                 JPanel recipeCard = createRecipeCard(result);
                 recommendationsPanel.add(recipeCard);
-                recommendationsPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+                recommendationsPanel.add(Box.createVerticalStrut(10));
             }
         }
 
@@ -313,44 +394,64 @@ public class FindDishDialog extends JDialog {
     }
 
     /**
-     * Create a recipe recommendation card
+     * Create recipe recommendation card
      */
     private JPanel createRecipeCard(RecipeMatchResult result) {
-        JPanel card = new JPanel(new BorderLayout(10, 5));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
-        card.setBackground(new Color(220, 220, 220));
-        card.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 2, true),
-                new EmptyBorder(10, 10, 10, 10)
-        ));
+        JPanel card = new JPanel(new BorderLayout(10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Rounded white background
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                // Border
+                g2.setColor(new Color(120, 120, 120));
+                g2.setStroke(new BasicStroke(2));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 30, 30);
+
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(15, 20, 15, 20));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         // Recipe name
         JLabel nameLabel = new JLabel(result.getRecipe().getName());
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        card.add(nameLabel, BorderLayout.NORTH);
+        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
 
-        // Match info
-        String matchText = String.format("%.0f%% match (%d/%d ingredients)",
-                result.getMatchPercentage(),
-                result.getMatchedIngredientsCount(),
-                result.getTotalIngredientsCount());
-        JLabel matchLabel = new JLabel(matchText);
-        matchLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        // Match percentage
+        JLabel matchLabel = new JLabel(String.format("%.0f%% match", result.getMatchPercentage()));
+        matchLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        matchLabel.setForeground(result.isPerfectMatch() ? new Color(0, 150, 0) : UIColors.ACCENT_ORANGE);
 
+        // Perfect match indicator
         if (result.isPerfectMatch()) {
-            matchLabel.setForeground(new Color(0, 150, 0));
-            matchLabel.setText("✓ PERFECT MATCH - " + matchText);
+            JLabel perfectLabel = new JLabel("✓ Perfect Match!");
+            perfectLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            perfectLabel.setForeground(new Color(0, 150, 0));
+
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.setOpaque(false);
+            topPanel.add(nameLabel, BorderLayout.CENTER);
+            topPanel.add(perfectLabel, BorderLayout.SOUTH);
+
+            card.add(topPanel, BorderLayout.CENTER);
         } else {
-            matchLabel.setForeground(new Color(100, 100, 100));
+            card.add(nameLabel, BorderLayout.CENTER);
         }
 
-        card.add(matchLabel, BorderLayout.CENTER);
+        card.add(matchLabel, BorderLayout.EAST);
 
         // Click to view details
         card.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                showRecipeDetails(result);
+                RecipeDetailDialog detailDialog = new RecipeDetailDialog(FindDishDialog.this, result, parentWindow, FindDishDialog.this);
+                detailDialog.setVisible(true);
             }
 
             public void mouseEntered(java.awt.event.MouseEvent evt) {
@@ -358,7 +459,7 @@ public class FindDishDialog extends JDialog {
             }
 
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                card.setBackground(new Color(220, 220, 220));
+                card.setBackground(Color.WHITE);
             }
         });
 
@@ -366,68 +467,134 @@ public class FindDishDialog extends JDialog {
     }
 
     /**
-     * Show recipe details popup
-     */
-    private void showRecipeDetails(RecipeMatchResult result) {
-        RecipeDetailDialog detailDialog = new RecipeDetailDialog(this, result);
-        detailDialog.setVisible(true);
-    }
-
-    /**
-     * Ingredient row inner class
+     * Ingredient row with rounded box and pill-shaped dropdown
      */
     private class IngredientRow {
-        private final JPanel panel;
-        private final JTextField nameField;
-        private final JComboBox<String> categoryCombo;
-        private final JButton deleteButton;
+        private JPanel panel;
+        private JTextField nameField;
+        private JButton categoryButton;
+        private JButton deleteButton;
+        private String selectedCategory;
 
         public IngredientRow() {
-            panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
-            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-            panel.setBackground(new Color(200, 200, 200));
-            panel.setBorder(new EmptyBorder(2, 5, 2, 5));
+            selectedCategory = Ingredient.CATEGORY_MEAT;
 
-            nameField = new JTextField(15);
-            nameField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            // Rounded wrapper panel
+            panel = new JPanel(new BorderLayout(10, 0)) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            String[] categories = {
-                    Ingredient.CATEGORY_MEAT,
-                    Ingredient.CATEGORY_VEGGIES,
-                    Ingredient.CATEGORY_SEASONING,
-                    Ingredient.CATEGORY_DAIRY,
-                    Ingredient.CATEGORY_GRAIN,
-                    Ingredient.CATEGORY_OTHER
+                    // Rounded white background
+                    g2.setColor(Color.WHITE);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 40, 40);
+
+                    // Border
+                    g2.setColor(new Color(120, 120, 120));
+                    g2.setStroke(new BasicStroke(2));
+                    g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 40, 40);
+
+                    g2.dispose();
+                }
             };
-            categoryCombo = new JComboBox<>(categories);
-            categoryCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-            categoryCombo.setBackground(new Color(100, 100, 100));
-            categoryCombo.setForeground(Color.WHITE);
+            panel.setOpaque(false);
+            panel.setBorder(new EmptyBorder(12, 20, 12, 15));
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 65));
 
+            // Name field (bigger font)
+            nameField = new JTextField();
+            nameField.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+            nameField.setBorder(null);
+            nameField.setOpaque(false);
+
+            // Category button (pill-shaped dropdown trigger)
+            categoryButton = new JButton("Meat ▼");
+            categoryButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            categoryButton.setBackground(UIColors.BUTTON_RED);
+            categoryButton.setForeground(Color.WHITE);
+            categoryButton.setPreferredSize(new Dimension(120, 40));
+            categoryButton.setFocusPainted(false);
+            categoryButton.setBorderPainted(false);
+            categoryButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            categoryButton.addActionListener(e -> showCategoryPopup());
+
+            // Delete button
             deleteButton = new JButton("×");
             deleteButton.setFont(new Font("Segoe UI", Font.BOLD, 20));
-            deleteButton.setPreferredSize(new Dimension(40, 35));
+            deleteButton.setPreferredSize(new Dimension(40, 40));
             deleteButton.setBackground(new Color(200, 100, 100));
             deleteButton.setForeground(Color.WHITE);
             deleteButton.setFocusPainted(false);
             deleteButton.setBorderPainted(false);
+            deleteButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
             deleteButton.addActionListener(e -> removeIngredientRow(this));
 
-            panel.add(nameField);
-            panel.add(categoryCombo);
-            panel.add(deleteButton);
+            // Right panel
+            JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            rightPanel.setOpaque(false);
+            rightPanel.add(categoryButton);
+            rightPanel.add(deleteButton);
+
+            panel.add(nameField, BorderLayout.CENTER);
+            panel.add(rightPanel, BorderLayout.EAST);
         }
 
-        public JPanel getPanel() {
-            return panel;
+        /**
+         * Show custom category popup
+         */
+        private void showCategoryPopup() {
+            JPopupMenu popup = new JPopupMenu();
+            popup.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            popup.setBackground(Color.WHITE);
+
+            String[] categories = {
+                    Ingredient.CATEGORY_MEAT,
+                    Ingredient.CATEGORY_VEGGIES,
+                    "ETC"
+            };
+
+            for (String category : categories) {
+                JButton pillButton = new JButton(category) {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g.create();
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(UIColors.BUTTON_RED);
+                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 50, 50);
+                        g2.dispose();
+                        super.paintComponent(g);
+                    }
+                };
+
+                pillButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
+                pillButton.setForeground(Color.WHITE);
+                pillButton.setPreferredSize(new Dimension(260, 50));
+                pillButton.setMaximumSize(new Dimension(260, 50));
+                pillButton.setContentAreaFilled(false);
+                pillButton.setBorderPainted(false);
+                pillButton.setFocusPainted(false);
+                pillButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                String actualCategory = category.equals("ETC") ? Ingredient.CATEGORY_SEASONING : category;
+
+                pillButton.addActionListener(e -> {
+                    categoryButton.setText(category + " ▼");
+                    selectedCategory = actualCategory;
+                    popup.setVisible(false);
+                });
+
+                popup.add(pillButton);
+                if (!category.equals(categories[categories.length - 1])) {
+                    popup.add(Box.createVerticalStrut(10));
+                }
+            }
+
+            popup.show(categoryButton, 0, categoryButton.getHeight() + 5);
         }
 
-        public String getIngredientName() {
-            return nameField.getText().trim();
-        }
-
-        public String getCategory() {
-            return (String) categoryCombo.getSelectedItem();
-        }
+        public JPanel getPanel() { return panel; }
+        public String getIngredientName() { return nameField.getText().trim(); }
+        public String getCategory() { return selectedCategory; }
     }
 }
